@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#091522">
+  <title>Ghost Data Audit — Northstar Shop</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #091522;
+      --panel: #101f2e;
+      --panel-raised: #142638;
+      --line: rgba(166, 198, 219, .12);
+      --text: #edf7fb;
+      --muted: #8da5b7;
+      --cyan: #64d8ed;
+      --mint: #27d7ac;
+      --coral: #ff9189;
+      --yellow: #f2c94c;
+      --blue: #3e819e;
+      --shadow: 0 18px 48px rgba(0, 0, 0, .18);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse at 15% 0%, rgba(35, 113, 145, .17), transparent 38rem),
+        radial-gradient(ellipse at 100% 35%, rgba(24, 77, 102, .12), transparent 36rem),
+        var(--bg);
+    }
+
+    button, input, select { font: inherit; }
+    button, label[for="report-file"] { cursor: pointer; }
+    .shell { width: min(1320px, calc(100% - 48px)); margin: 0 auto; }
+    .topbar {
+      height: 70px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand { display: flex; gap: 11px; align-items: center; color: #c9deea; font-size: 13px; font-weight: 700; letter-spacing: .08em; }
+    .brand-mark {
+      display: grid;
+      width: 29px;
+      height: 29px;
+      place-items: center;
+      color: #06151d;
+      border-radius: 9px;
+      background: linear-gradient(145deg, var(--cyan), var(--mint));
+      font-size: 14px;
+    }
+    .top-note { color: var(--muted); font-size: 12px; }
+    main { padding: 42px 0 56px; }
+    .eyebrow { color: var(--cyan); font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    .hero {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 27px;
+    }
+    h1 { margin: 9px 0 8px; font-size: clamp(32px, 4vw, 45px); letter-spacing: -.045em; line-height: 1.08; }
+    .subtitle { max-width: 680px; margin: 0; color: #a8bdca; font-size: 14px; line-height: 1.65; }
+    .report-actions { display: flex; flex-direction: column; align-items: end; gap: 11px; }
+    .report-state { display: flex; gap: 8px; align-items: center; color: #adc2ce; font-size: 12px; white-space: nowrap; }
+    .state-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 12px currentColor; }
+    .state-dot.ready { background: var(--mint); }
+    .upload-button {
+      display: inline-flex;
+      min-height: 38px;
+      align-items: center;
+      justify-content: center;
+      padding: 0 14px;
+      color: #07171f;
+      border: 0;
+      border-radius: 9px;
+      background: var(--cyan);
+      font-size: 12px;
+      font-weight: 800;
+      transition: filter .15s, transform .15s;
+    }
+    .upload-button:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    #report-file { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+    .error-banner {
+      display: none;
+      margin: 0 0 18px;
+      padding: 12px 15px;
+      color: #ffd1cc;
+      border: 1px solid rgba(255, 145, 137, .28);
+      border-radius: 10px;
+      background: rgba(110, 41, 46, .25);
+      font-size: 13px;
+    }
+    .error-banner.visible { display: block; }
+
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 18px; }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: linear-gradient(145deg, rgba(20, 38, 54, .96), rgba(13, 29, 43, .96));
+      box-shadow: var(--shadow);
+    }
+    .stat { min-height: 124px; padding: 20px 21px; }
+    .stat-label { color: #a8bdca; font-size: 12px; }
+    .stat-value { margin: 10px 0 4px; font-size: 31px; font-weight: 780; letter-spacing: -.045em; }
+    .stat-foot { color: var(--muted); font-size: 11px; }
+    .stat.complete .stat-value { color: var(--mint); }
+    .stat.incomplete .stat-value { color: var(--coral); }
+    .stat.na .stat-value { color: var(--yellow); }
+
+    .overview { display: grid; grid-template-columns: .85fr 1.6fr; gap: 18px; margin-bottom: 18px; }
+    .overview-card { min-height: 245px; padding: 22px 24px; }
+    .section-heading { margin: 0; font-size: 15px; font-weight: 750; letter-spacing: -.015em; }
+    .section-subtitle { margin: 6px 0 0; color: var(--muted); font-size: 11px; }
+    .mix-content { display: flex; align-items: center; gap: clamp(20px, 4vw, 42px); margin-top: 22px; }
+    .donut {
+      position: relative;
+      display: grid;
+      width: 148px;
+      height: 148px;
+      flex: 0 0 auto;
+      place-items: center;
+      border-radius: 50%;
+      background: conic-gradient(var(--mint) 0 var(--complete), var(--coral) var(--complete) var(--complete-plus-incomplete), var(--yellow) var(--complete-plus-incomplete) 100%);
+    }
+    .donut::before { position: absolute; width: 101px; height: 101px; border-radius: 50%; background: #112132; content: ""; }
+    .donut-center { z-index: 1; text-align: center; }
+    .donut-center strong { display: block; font-size: 24px; letter-spacing: -.04em; }
+    .donut-center span { color: var(--muted); font-size: 10px; }
+    .legend { display: grid; gap: 13px; width: 100%; }
+    .legend-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: #b6c9d4; font-size: 12px; }
+    .legend-label { display: flex; align-items: center; gap: 9px; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .legend-row strong { color: var(--text); font-size: 12px; }
+    .mix-foot { margin: 17px 0 0; color: var(--muted); font-size: 10px; }
+    .coverage { margin-top: 22px; display: grid; gap: 16px; }
+    .coverage-row { display: grid; gap: 7px; }
+    .coverage-label { display: flex; justify-content: space-between; color: #bdd0db; font-size: 11px; }
+    .coverage-label strong { color: var(--text); font-size: 11px; }
+    .track { height: 7px; overflow: hidden; border-radius: 20px; background: rgba(94, 137, 159, .22); }
+    .bar { width: 0; height: 100%; border-radius: inherit; transition: width .45s ease; }
+    .bar.complete { background: var(--mint); }
+    .bar.incomplete { background: var(--coral); }
+    .bar.na { background: var(--yellow); }
+    .coverage-foot { margin: 2px 0 0; color: #9aafbc; font-size: 11px; }
+
+    .cases-card { overflow: hidden; }
+    .cases-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 21px 23px 17px; border-bottom: 1px solid var(--line); }
+    .toolbar-controls { display: flex; gap: 10px; }
+    .search-wrap { position: relative; }
+    .search-icon { position: absolute; top: 11px; left: 12px; color: #7895a8; font-size: 14px; }
+    .search, .filter {
+      height: 37px;
+      color: var(--text);
+      outline: none;
+      border: 1px solid rgba(166, 198, 219, .16);
+      border-radius: 8px;
+      background: #0c1a28;
+      font-size: 11px;
+    }
+    .search { width: min(320px, 38vw); padding: 0 12px 0 33px; }
+    .search::placeholder { color: #71899b; }
+    .filter { min-width: 138px; padding: 0 29px 0 11px; }
+    .search:focus, .filter:focus { border-color: rgba(100, 216, 237, .7); }
+    .case-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr); min-height: 410px; }
+    .table-wrap { min-width: 0; overflow: auto; max-height: 540px; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { position: sticky; top: 0; z-index: 1; color: #7791a3; background: #102031; font-size: 9px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+    th, td { padding: 13px 14px; border-bottom: 1px solid rgba(166, 198, 219, .08); white-space: nowrap; }
+    th:first-child, td:first-child { padding-left: 22px; }
+    td { color: #c4d4dc; font-size: 11px; }
+    tbody tr { cursor: pointer; transition: background .12s; }
+    tbody tr:hover, tbody tr.selected { background: rgba(69, 142, 170, .11); }
+    .case-id { color: #e2f2f8; font-weight: 700; }
+    .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid transparent; border-radius: 100px; font-size: 9px; font-weight: 800; letter-spacing: .035em; }
+    .status-pill::before { width: 5px; height: 5px; border-radius: 50%; background: currentColor; content: ""; }
+    .status-pill.complete { color: var(--mint); border-color: rgba(39, 215, 172, .18); background: rgba(39, 215, 172, .08); }
+    .status-pill.incomplete { color: var(--coral); border-color: rgba(255, 145, 137, .19); background: rgba(255, 145, 137, .08); }
+    .status-pill.not-applicable { color: var(--yellow); border-color: rgba(242, 201, 76, .17); background: rgba(242, 201, 76, .08); }
+    .step-count { color: #91a9b8; }
+    .empty-row td { height: 130px; color: var(--muted); text-align: center; white-space: normal; }
+    .pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+    .page-buttons { display: flex; gap: 7px; }
+    .page-button { width: 28px; height: 26px; color: #a9bfcb; border: 1px solid var(--line); border-radius: 6px; background: #0c1a28; }
+    .page-button:disabled { opacity: .38; cursor: default; }
+    .detail-panel { min-width: 0; padding: 21px 22px; border-left: 1px solid var(--line); background: rgba(7, 18, 29, .28); }
+    .detail-top { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
+    .detail-kicker { color: var(--muted); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+    .detail-title { margin: 6px 0 0; font-size: 19px; letter-spacing: -.025em; }
+    .detail-summary { margin: 9px 0 18px; color: #9db3c0; font-size: 11px; line-height: 1.55; }
+    .steps-heading { display: flex; align-items: center; justify-content: space-between; color: #a8bdca; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    .steps-list { display: grid; gap: 9px; max-height: 365px; overflow: auto; margin-top: 11px; padding-right: 3px; }
+    .step-card { position: relative; padding: 12px 12px 12px 39px; border: 1px solid rgba(166, 198, 219, .1); border-radius: 9px; background: rgba(17, 34, 50, .7); }
+    .step-number { position: absolute; top: 12px; left: 12px; display: grid; width: 18px; height: 18px; place-items: center; color: var(--cyan); border-radius: 50%; background: rgba(100, 216, 237, .1); font-size: 9px; font-weight: 800; }
+    .step-phase { color: var(--cyan); font-size: 8px; font-weight: 800; letter-spacing: .1em; }
+    .step-operation { margin-top: 4px; color: #e0edf3; font-size: 10px; font-weight: 750; }
+    .step-resource { margin-top: 6px; color: #95acba; font-size: 9px; overflow-wrap: anywhere; }
+    .step-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .meta-chip { padding: 4px 6px; color: #a9bfcb; border-radius: 5px; background: rgba(134, 166, 183, .09); font-size: 8px; }
+    .meta-chip.evidence { color: #80ddeb; background: rgba(100, 216, 237, .09); }
+    .detail-empty { display: grid; min-height: 300px; place-items: center; color: #839bab; font-size: 11px; text-align: center; }
+    footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; color: #71899a; font-size: 10px; }
+
+    @media (max-width: 900px) {
+      .overview { grid-template-columns: 1fr 1.25fr; }
+      .case-layout { grid-template-columns: 1fr; }
+      .detail-panel { border-top: 1px solid var(--line); border-left: 0; }
+      .detail-empty { min-height: 170px; }
+    }
+    @media (max-width: 650px) {
+      .shell { width: min(calc(100% - 48px), 540px); }
+      .topbar { height: 58px; }
+      .top-note { display: none; }
+      main { padding-top: 28px; }
+      .hero { align-items: start; flex-direction: column; }
+      .report-actions { align-items: start; flex-direction: row; flex-wrap: wrap; }
+      .stats { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .stat { min-height: 108px; padding: 15px; }
+      .stat-value { font-size: 27px; }
+      .overview { grid-template-columns: minmax(0, 1fr); }
+      .overview-card { min-height: 0; padding: 19px; }
+      .mix-content { justify-content: center; gap: 8px; }
+      .legend { min-width: 0; }
+      .legend-row { gap: 8px; }
+      .donut { width: 100px; height: 100px; }
+      .donut::before { width: 70px; height: 70px; }
+      .cases-toolbar { align-items: start; flex-direction: column; padding: 18px 15px 13px; }
+      .toolbar-controls { width: 100%; }
+      .search-wrap { flex: 1; }
+      .search { width: 100%; }
+      .filter { min-width: 120px; }
+      th, td { padding: 11px 10px; }
+      th:first-child, td:first-child { padding-left: 14px; }
+      .detail-panel { padding: 19px 16px; }
+      footer { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell" style="display:flex;align-items:center;justify-content:space-between">
+      <div class="brand"><span class="brand-mark">N</span><span>NORTHSTAR SHOP <span style="color:#58798d">/</span> DATA GOVERNANCE</span></div>
+      <div class="top-note">HackerRank Orchestrate · October 2026</div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Deletion compliance · generated case file</div>
+        <h1>Ghost Data Audit</h1>
+        <p class="subtitle">Evidence-backed deletion status and next steps across Northstar Shop systems. Review remaining records, remediation plans, and verification checks from your project report.</p>
+      </div>
+      <div class="report-actions">
+        <div class="report-state" aria-live="polite"><span id="state-dot" class="state-dot"></span><span id="report-state">Waiting for output.csv</span></div>
+        <label class="upload-button" for="report-file">Load project output</label>
+        <input id="report-file" type="file" accept=".csv,text/csv">
+      </div>
+    </section>
+
+    <div id="error-banner" class="error-banner" role="alert"></div>
+
+    <section class="stats" aria-label="Audit summary">
+      <article class="card stat">
+        <div class="stat-label">Cases audited</div>
+        <div id="total-count" class="stat-value">—</div>
+        <div id="total-foot" class="stat-foot">rows in output.csv</div>
+      </article>
+      <article class="card stat complete">
+        <div class="stat-label">Complete</div>
+        <div id="complete-count" class="stat-value">—</div>
+        <div id="complete-foot" class="stat-foot">evidence-backed checks passed</div>
+      </article>
+      <article class="card stat incomplete">
+        <div class="stat-label">Incomplete</div>
+        <div id="incomplete-count" class="stat-value">—</div>
+        <div id="incomplete-foot" class="stat-foot">cases requiring follow-up</div>
+      </article>
+      <article class="card stat na">
+        <div class="stat-label">Not applicable</div>
+        <div id="na-count" class="stat-value">—</div>
+        <div id="na-foot" class="stat-foot">no deletion authorization</div>
+      </article>
+    </section>
+
+    <section class="overview">
+      <article class="card overview-card">
+        <h2 class="section-heading">Status mix</h2>
+        <p class="section-subtitle">Share of all audited cases</p>
+        <div class="mix-content">
+          <div id="donut" class="donut" role="img" aria-label="Audit status distribution">
+            <div class="donut-center"><strong id="donut-total">—</strong><span>total cases</span></div>
+          </div>
+          <div class="legend">
+            <div class="legend-row"><span class="legend-label"><i class="legend-dot" style="background:var(--mint)"></i>Complete</span><strong id="complete-legend">—</strong></div>
+            <div class="legend-row"><span class="legend-label"><i class="legend-dot" style="background:var(--coral)"></i>Incomplete</span><strong id="incomplete-legend">—</strong></div>
+            <div class="legend-row"><span class="legend-label"><i class="legend-dot" style="background:var(--yellow)"></i>Not applicable</span><strong id="na-legend">—</strong></div>
+          </div>
+        </div>
+        <p class="mix-foot">Results reflect the loaded audit output, not the workflow's reported status.</p>
+      </article>
+
+      <article class="card overview-card">
+        <h2 class="section-heading">Coverage at a glance</h2>
+        <p class="section-subtitle">Current output by deletion decision</p>
+        <div class="coverage">
+          <div class="coverage-row">
+            <div class="coverage-label"><span>Complete</span><strong id="complete-percent">—</strong></div>
+            <div class="track"><div id="complete-bar" class="bar complete"></div></div>
+          </div>
+          <div class="coverage-row">
+            <div class="coverage-label"><span>Incomplete</span><strong id="incomplete-percent">—</strong></div>
+            <div class="track"><div id="incomplete-bar" class="bar incomplete"></div></div>
+          </div>
+          <div class="coverage-row">
+            <div class="coverage-label"><span>Not applicable</span><strong id="na-percent">—</strong></div>
+            <div class="track"><div id="na-bar" class="bar na"></div></div>
+          </div>
+          <p id="coverage-foot" class="coverage-foot">Load the generated root-level output.csv to populate this audit summary.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="card cases-card" aria-label="Audited cases">
+      <div class="cases-toolbar">
+        <div>
+          <h2 class="section-heading">Case review</h2>
+          <p class="section-subtitle">Search a case, system, resource, operation, or evidence reference.</p>
+        </div>
+        <div class="toolbar-controls">
+          <label class="search-wrap">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input id="search" class="search" type="search" placeholder="Search audit results…" autocomplete="off" aria-label="Search audit results">
+          </label>
+          <select id="status-filter" class="filter" aria-label="Filter by deletion status">
+            <option value="ALL">All statuses</option>
+            <option value="COMPLETE">Complete</option>
+            <option value="INCOMPLETE">Incomplete</option>
+            <option value="NOT_APPLICABLE">Not applicable</option>
+          </select>
+        </div>
+      </div>
+      <div class="case-layout">
+        <div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Case ID</th><th>Status</th><th>Steps</th></tr></thead>
+              <tbody id="case-rows"><tr class="empty-row"><td colspan="3">Load output.csv to explore the audited cases.</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span id="page-summary">No report loaded</span>
+            <div class="page-buttons">
+              <button id="previous-page" class="page-button" type="button" aria-label="Previous page" disabled>‹</button>
+              <button id="next-page" class="page-button" type="button" aria-label="Next page" disabled>›</button>
+            </div>
+          </div>
+        </div>
+        <aside id="detail-panel" class="detail-panel" aria-live="polite">
+          <div class="detail-empty">Select a case to inspect its findings,<br>remediation plan, and verification steps.</div>
+        </aside>
+      </div>
+    </section>
+
+    <footer>
+      <span>Northstar Shop · Ghost Data Still Exists</span>
+      <span>Report data stays in this browser; no data is sent to a server.</span>
+    </footer>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const PAGE_SIZE = 10;
+      const VALID_STATUSES = new Set(["COMPLETE", "INCOMPLETE", "NOT_APPLICABLE"]);
+      const state = { rows: [], filtered: [], selectedCaseId: null, page: 0 };
+      const byId = (id) => document.getElementById(id);
+
+      function parseCsv(text) {
+        const rows = [];
+        let row = [];
+        let field = "";
+        let quoted = false;
+        for (let i = 0; i < text.length; i += 1) {
+          const char = text[i];
+          if (quoted) {
+            if (char === '"' && text[i + 1] === '"') {
+              field += '"';
+              i += 1;
+            } else if (char === '"') {
+              quoted = false;
+            } else {
+              field += char;
+            }
+          } else if (char === '"' && field.length === 0) {
+            quoted = true;
+          } else if (char === ",") {
+            row.push(field);
+            field = "";
+          } else if (char === "\n" || char === "\r") {
+            row.push(field);
+            if (row.some((value) => value.length > 0)) rows.push(row);
+            row = [];
+            field = "";
+            if (char === "\r" && text[i + 1] === "\n") i += 1;
+          } else {
+            field += char;
+          }
+        }
+        if (quoted) throw new Error("The CSV contains an unterminated quoted field.");
+        if (field.length > 0 || row.length > 0) {
+          row.push(field);
+          if (row.some((value) => value.length > 0)) rows.push(row);
+        }
+        return rows;
+      }
+
+      function decodeReport(text) {
+        const records = parseCsv(text.replace(/^\uFEFF/, ""));
+        if (records.length < 2) throw new Error("The selected CSV has no audit rows.");
+        const headers = records[0].map((header) => header.trim());
+        const expected = ["case_id", "deletion_status", "steps_json"];
+        if (expected.some((name, index) => headers[index] !== name) || headers.length !== expected.length) {
+          throw new Error("Expected output.csv columns: case_id,deletion_status,steps_json.");
+        }
+        const output = records.slice(1).map((record, index) => {
+          if (record.length !== expected.length) throw new Error(`CSV row ${index + 2} has ${record.length} columns; expected 3.`);
+          const [caseId, status, json] = record;
+          if (!caseId.trim()) throw new Error(`CSV row ${index + 2} is missing a case_id.`);
+          if (!VALID_STATUSES.has(status)) throw new Error(`CSV row ${index + 2} has an invalid deletion_status.`);
+          let steps;
+          try {
+            steps = JSON.parse(json);
+          } catch {
+            throw new Error(`CSV row ${index + 2} has invalid steps_json.`);
+          }
+          if (!Array.isArray(steps)) throw new Error(`CSV row ${index + 2} steps_json must be an array.`);
+          return { caseId, status, steps };
+        });
+        return output;
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        })[char]);
+      }
+
+      function statusClass(status) {
+        return status === "NOT_APPLICABLE" ? "not-applicable" : status.toLowerCase();
+      }
+
+      function humanStatus(status) {
+        return status === "NOT_APPLICABLE" ? "Not applicable" : status.charAt(0) + status.slice(1).toLowerCase();
+      }
+
+      function setError(message) {
+        const banner = byId("error-banner");
+        banner.textContent = message;
+        banner.classList.toggle("visible", Boolean(message));
+      }
+
+      function setReportStatus(message, ready) {
+        byId("report-state").textContent = message;
+        byId("state-dot").classList.toggle("ready", ready);
+      }
+
+      function updateSummary() {
+        const counts = { COMPLETE: 0, INCOMPLETE: 0, NOT_APPLICABLE: 0 };
+        state.rows.forEach((row) => { counts[row.status] += 1; });
+        const total = state.rows.length;
+        const pct = (count) => total ? Math.round((count / total) * 100) : 0;
+        const completePct = pct(counts.COMPLETE);
+        const incompletePct = pct(counts.INCOMPLETE);
+        const naPct = pct(counts.NOT_APPLICABLE);
+        const completeEnd = total ? (counts.COMPLETE / total) * 100 : 0;
+        const incompleteEnd = total ? ((counts.COMPLETE + counts.INCOMPLETE) / total) * 100 : 0;
+
+        byId("total-count").textContent = total.toLocaleString();
+        byId("donut-total").textContent = total.toLocaleString();
+        byId("complete-count").textContent = counts.COMPLETE.toLocaleString();
+        byId("incomplete-count").textContent = counts.INCOMPLETE.toLocaleString();
+        byId("na-count").textContent = counts.NOT_APPLICABLE.toLocaleString();
+        byId("complete-legend").textContent = counts.COMPLETE.toLocaleString();
+        byId("incomplete-legend").textContent = counts.INCOMPLETE.toLocaleString();
+        byId("na-legend").textContent = counts.NOT_APPLICABLE.toLocaleString();
+        byId("complete-percent").textContent = `${completePct}% · ${counts.COMPLETE}`;
+        byId("incomplete-percent").textContent = `${incompletePct}% · ${counts.INCOMPLETE}`;
+        byId("na-percent").textContent = `${naPct}% · ${counts.NOT_APPLICABLE}`;
+        byId("complete-bar").style.width = `${completePct}%`;
+        byId("incomplete-bar").style.width = `${incompletePct}%`;
+        byId("na-bar").style.width = `${naPct}%`;
+        byId("donut").style.setProperty("--complete", `${completeEnd}%`);
+        byId("donut").style.setProperty("--complete-plus-incomplete", `${incompleteEnd}%`);
+        byId("total-foot").textContent = total === 518 ? "all 518 project requests represented" : "rows in the loaded output.csv";
+        byId("complete-foot").textContent = `${completePct}% of all audited cases`;
+        byId("incomplete-foot").textContent = `${incompletePct}% of all audited cases`;
+        byId("na-foot").textContent = `${naPct}% of all audited cases`;
+        byId("coverage-foot").textContent = total
+          ? `${counts.INCOMPLETE.toLocaleString()} cases currently need follow-up; ${counts.NOT_APPLICABLE.toLocaleString()} requests do not authorize deletion.`
+          : "Load the generated root-level output.csv to populate this audit summary.";
+      }
+
+      function stepSearchText(row) {
+        return row.steps.flatMap((step) => [
+          step.phase, step.system_id, step.resource_id, step.operation, step.state, step.evidence_id
+        ]).join(" ").toLowerCase();
+      }
+
+      function renderRows() {
+        const query = byId("search").value.trim().toLowerCase();
+        const status = byId("status-filter").value;
+        state.filtered = state.rows.filter((row) => {
+          const matchesStatus = status === "ALL" || row.status === status;
+          const searchable = `${row.caseId} ${row.status} ${stepSearchText(row)}`.toLowerCase();
+          return matchesStatus && (!query || searchable.includes(query));
+        });
+        const pageCount = Math.max(1, Math.ceil(state.filtered.length / PAGE_SIZE));
+        state.page = Math.min(state.page, pageCount - 1);
+        const start = state.page * PAGE_SIZE;
+        const pageRows = state.filtered.slice(start, start + PAGE_SIZE);
+        const tbody = byId("case-rows");
+
+        if (!pageRows.length) {
+          tbody.innerHTML = `<tr class="empty-row"><td colspan="3">${state.rows.length ? "No cases match your search or filter." : "Load output.csv to explore the audited cases."}</td></tr>`;
+        } else {
+          tbody.innerHTML = pageRows.map((row) => `
+            <tr data-case-id="${escapeHtml(row.caseId)}" class="${row.caseId === state.selectedCaseId ? "selected" : ""}" tabindex="0" aria-label="Inspect ${escapeHtml(row.caseId)}">
+              <td class="case-id">${escapeHtml(row.caseId)}</td>
+              <td><span class="status-pill ${statusClass(row.status)}">${humanStatus(row.status)}</span></td>
+              <td class="step-count">${row.steps.length} ${row.steps.length === 1 ? "step" : "steps"}</td>
+            </tr>`).join("");
+          tbody.querySelectorAll("tr[data-case-id]").forEach((tr) => {
+            const select = () => selectCase(tr.dataset.caseId);
+            tr.addEventListener("click", select);
+            tr.addEventListener("keydown", (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                select();
+              }
+            });
+          });
+        }
+
+        const shownStart = state.filtered.length ? start + 1 : 0;
+        const shownEnd = Math.min(start + PAGE_SIZE, state.filtered.length);
+        byId("page-summary").textContent = state.filtered.length
+          ? `Showing ${shownStart}–${shownEnd} of ${state.filtered.length} cases`
+          : "No matching cases";
+        byId("previous-page").disabled = state.page === 0;
+        byId("next-page").disabled = state.page >= pageCount - 1;
+
+        if (state.selectedCaseId && !state.filtered.some((row) => row.caseId === state.selectedCaseId)) {
+          state.selectedCaseId = null;
+          renderDetail(null);
+        }
+      }
+
+      function renderDetail(row) {
+        const panel = byId("detail-panel");
+        if (!row) {
+          panel.innerHTML = `<div class="detail-empty">Select a case to inspect its findings,<br>remediation plan, and verification steps.</div>`;
+          return;
+        }
+        const descriptions = {
+          COMPLETE: "Required deletion checks are reported as verified for this case.",
+          INCOMPLETE: "The report identifies remaining work or data that requires follow-up.",
+          NOT_APPLICABLE: "The request did not authorize deletion; no deletion steps are expected."
+        };
+        const stepsHtml = row.steps.length ? row.steps.map((step) => `
+          <article class="step-card">
+            <span class="step-number">${escapeHtml(step.step_no ?? "·")}</span>
+            <div class="step-phase">${escapeHtml(step.phase ?? "STEP")}</div>
+            <div class="step-operation">${escapeHtml(step.operation ?? "Unspecified operation")}</div>
+            <div class="step-resource">${escapeHtml(step.system_id ?? "Unknown system")} <span style="color:#58798d">/</span> ${escapeHtml(step.resource_id ?? "Unknown resource")}</div>
+            <div class="step-meta">
+              <span class="meta-chip">State: ${escapeHtml(step.state ?? "—")}</span>
+              ${step.evidence_id ? `<span class="meta-chip evidence">Evidence: ${escapeHtml(step.evidence_id)}</span>` : `<span class="meta-chip">Proposed step</span>`}
+            </div>
+          </article>`).join("") : `<div class="step-card"><div class="step-operation">No deletion steps</div><div class="step-resource">This case has an empty steps_json array.</div></div>`;
+        panel.innerHTML = `
+          <div class="detail-top">
+            <div><div class="detail-kicker">Selected audit case</div><h3 class="detail-title">${escapeHtml(row.caseId)}</h3></div>
+            <span class="status-pill ${statusClass(row.status)}">${humanStatus(row.status)}</span>
+          </div>
+          <p class="detail-summary">${descriptions[row.status]}</p>
+          <div class="steps-heading"><span>Ordered audit steps</span><span>${row.steps.length}</span></div>
+          <div class="steps-list">${stepsHtml}</div>`;
+      }
+
+      function selectCase(caseId) {
+        state.selectedCaseId = caseId;
+        const row = state.rows.find((item) => item.caseId === caseId);
+        renderDetail(row);
+        renderRows();
+      }
+
+      function loadReport(text, label) {
+        const rows = decodeReport(text);
+        const caseIds = new Set();
+        for (const row of rows) {
+          if (caseIds.has(row.caseId)) throw new Error(`Duplicate case_id "${row.caseId}" in the report.`);
+          caseIds.add(row.caseId);
+        }
+        state.rows = rows.sort((left, right) => left.caseId.localeCompare(right.caseId, undefined, { numeric: true }));
+        state.filtered = [];
+        state.selectedCaseId = null;
+        state.page = 0;
+        setError("");
+        setReportStatus(`${label} · ${rows.length.toLocaleString()} rows loaded`, true);
+        updateSummary();
+        renderDetail(null);
+        renderRows();
+      }
+
+      byId("report-file").addEventListener("change", async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        try {
+          loadReport(await file.text(), file.name);
+        } catch (error) {
+          setError(error instanceof Error ? error.message : "Unable to read the selected report.");
+          setReportStatus("Report could not be loaded", false);
+        } finally {
+          event.target.value = "";
+        }
+      });
+
+      byId("search").addEventListener("input", () => { state.page = 0; renderRows(); });
+      byId("status-filter").addEventListener("change", () => { state.page = 0; renderRows(); });
+      byId("previous-page").addEventListener("click", () => { state.page -= 1; renderRows(); });
+      byId("next-page").addEventListener("click", () => { state.page += 1; renderRows(); });
+
+      updateSummary();
+      renderRows();
+      fetch("./output.csv")
+        .then((response) => {
+          if (!response.ok) throw new Error("No output.csv is available beside this dashboard.");
+          return response.text();
+        })
+        .then((text) => loadReport(text, "output.csv"))
+        .catch(() => setReportStatus("Waiting for output.csv", false));
+    })();
+  </script>
+</body>
+</html>
